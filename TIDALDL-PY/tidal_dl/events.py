@@ -2,21 +2,16 @@
 # -*- encoding: utf-8 -*-
 """
 @File    :  events.py
-@Date    :  2022/06/10
-@Author  :  Yaronzz
-@Version :  1.0
-@Contact :  yaronhuang@foxmail.com
-@Desc    :
+@Date    :  2022/06/10 (atualizado 2026)
+@Author  :  Yaronzz  /  adaptações para tidalapi
+@Desc    :  Lógica de download, login e configurações.
 """
 
 from download import *
 
-'''
-=================================
-START DOWNLOAD
-=================================
-'''
-
+# =============================================================================
+# DOWNLOAD
+# =============================================================================
 
 def start_album(obj: Album):
     Printf.album(obj)
@@ -118,12 +113,9 @@ def start(string):
             Printf.err(str(e))
 
 
-'''
-=================================
-CHANGE SETTINGS
-=================================
-'''
-
+# =============================================================================
+# CONFIGURAÇÕES
+# =============================================================================
 
 def changePathSettings():
     Printf.settings()
@@ -166,45 +158,41 @@ def changeQualitySettings():
 
 def changeSettings():
     Printf.settings()
-    SETTINGS.showProgress = Printf.enterBool(LANG.select.CHANGE_SHOW_PROGRESS)
+    SETTINGS.showProgress  = Printf.enterBool(LANG.select.CHANGE_SHOW_PROGRESS)
     SETTINGS.showTrackInfo = Printf.enterBool(LANG.select.CHANGE_SHOW_TRACKINFO)
-    SETTINGS.checkExist = Printf.enterBool(LANG.select.CHANGE_CHECK_EXIST)
-    SETTINGS.includeEP = Printf.enterBool(LANG.select.CHANGE_INCLUDE_EP)
-    SETTINGS.saveCovers = Printf.enterBool(LANG.select.CHANGE_SAVE_COVERS)
+    SETTINGS.checkExist    = Printf.enterBool(LANG.select.CHANGE_CHECK_EXIST)
+    SETTINGS.includeEP     = Printf.enterBool(LANG.select.CHANGE_INCLUDE_EP)
+    SETTINGS.saveCovers    = Printf.enterBool(LANG.select.CHANGE_SAVE_COVERS)
     SETTINGS.saveAlbumInfo = Printf.enterBool(LANG.select.CHANGE_SAVE_ALBUM_INFO)
     SETTINGS.downloadVideos = Printf.enterBool(LANG.select.CHANGE_DOWNLOAD_VIDEOS)
-    SETTINGS.lyricFile = Printf.enterBool(LANG.select.CHANGE_ADD_LRC_FILE)
-    SETTINGS.multiThread = Printf.enterBool(LANG.select.CHANGE_MULITHREAD_DOWNLOAD)
-    SETTINGS.usePlaylistFolder = Printf.enterBool(LANG.select.SETTING_USE_PLAYLIST_FOLDER + "('0'-No,'1'-Yes):")
+    SETTINGS.lyricFile     = Printf.enterBool(LANG.select.CHANGE_ADD_LRC_FILE)
+    SETTINGS.multiThread   = Printf.enterBool(LANG.select.CHANGE_MULITHREAD_DOWNLOAD)
+    SETTINGS.usePlaylistFolder = Printf.enterBool(
+        LANG.select.SETTING_USE_PLAYLIST_FOLDER + "('0'-No,'1'-Yes):")
     SETTINGS.downloadDelay = Printf.enterBool(LANG.select.CHANGE_USE_DOWNLOAD_DELAY)
-    SETTINGS.language = Printf.enter(LANG.select.CHANGE_LANGUAGE + "(" + LANG.getLangChoicePrint() + "):")
+    SETTINGS.language = Printf.enter(
+        LANG.select.CHANGE_LANGUAGE + "(" + LANG.getLangChoicePrint() + "):")
     LANG.setLang(SETTINGS.language)
     SETTINGS.save()
 
 
 def changeApiKey():
-    item = apiKey.getItem(SETTINGS.apiKeyIndex)
-    ver = apiKey.getVersion()
-
-    Printf.info(f'Current APIKeys: {str(SETTINGS.apiKeyIndex)} {item["platform"]}-{item["formats"]}')
-    Printf.info(f'Current Version: {str(ver)}')
-    Printf.apikeys(apiKey.getItems())
-    index = int(Printf.enterLimit("APIKEY index:", LANG.select.MSG_INPUT_ERR, apiKey.getLimitIndexs()))
-
-    if index != SETTINGS.apiKeyIndex:
-        SETTINGS.apiKeyIndex = index
-        SETTINGS.save()
-        TIDAL_API.apiKey = apiKey.getItem(index)
-        return True
+    """
+    Stub informativo — gerenciamento de API keys não é mais necessário.
+    O tidalapi cuida das credenciais internamente.
+    Retorna False para não disparar loginByWeb() após o retorno.
+    """
+    print("\n-------------------------------------------")
+    print("  API key management is no longer needed.")
+    print("  tidalapi handles credentials internally.")
+    print("  Use option [2] to re-login via browser.")
+    print("-------------------------------------------\n")
     return False
 
 
-'''
-=================================
-LOGIN
-=================================
-'''
-
+# =============================================================================
+# LOGIN
+# =============================================================================
 
 def __displayTime__(seconds, granularity=2):
     if seconds <= 0:
@@ -212,11 +200,11 @@ def __displayTime__(seconds, granularity=2):
 
     result = []
     intervals = (
-        ('weeks', 604800),
-        ('days', 86400),
-        ('hours', 3600),
-        ('minutes', 60),
-        ('seconds', 1),
+        ('weeks',   604800),
+        ('days',     86400),
+        ('hours',     3600),
+        ('minutes',     60),
+        ('seconds',      1),
     )
 
     for name, count in intervals:
@@ -230,9 +218,13 @@ def __displayTime__(seconds, granularity=2):
 
 
 def loginByWeb():
+    """
+    Login via browser (OAuth Device Code).
+    Exibe URL para o usuário autorizar; aguarda até 300 s.
+    """
     try:
         print(LANG.select.AUTH_START_LOGIN)
-        # get device code
+
         url = TIDAL_API.getDeviceCode()
 
         print(LANG.select.AUTH_NEXT_STEP.format(
@@ -240,10 +232,10 @@ def loginByWeb():
             aigpy.cmd.yellow(__displayTime__(TIDAL_API.key.authCheckTimeout))))
         print(LANG.select.AUTH_WAITING)
 
-        start = time.time()
+        start_t = time.time()
         elapsed = 0
         while elapsed < TIDAL_API.key.authCheckTimeout:
-            elapsed = time.time() - start
+            elapsed = time.time() - start_t
             if not TIDAL_API.checkAuthStatus():
                 time.sleep(TIDAL_API.key.authCheckInterval + 1)
                 continue
@@ -251,53 +243,76 @@ def loginByWeb():
             Printf.success(LANG.select.MSG_VALID_ACCESSTOKEN.format(
                 __displayTime__(int(TIDAL_API.key.expiresIn))))
 
-            TOKEN.userid = TIDAL_API.key.userId
-            TOKEN.countryCode = TIDAL_API.key.countryCode
-            TOKEN.accessToken = TIDAL_API.key.accessToken
+            TOKEN.userid       = TIDAL_API.key.userId
+            TOKEN.countryCode  = TIDAL_API.key.countryCode
+            TOKEN.accessToken  = TIDAL_API.key.accessToken
             TOKEN.refreshToken = TIDAL_API.key.refreshToken
             TOKEN.expiresAfter = time.time() + int(TIDAL_API.key.expiresIn)
             TOKEN.save()
             return True
 
         raise Exception(LANG.select.AUTH_TIMEOUT)
+
     except Exception as e:
-        Printf.err(f"Login failed.{str(e)}")
+        Printf.err(f"Login failed. {str(e)}")
         return False
 
 
 def loginByConfig():
+    """
+    Tenta restaurar sessão a partir do token salvo em disco.
+    Se o access token expirou, usa o refresh token automaticamente.
+    """
     try:
         if aigpy.string.isNull(TOKEN.accessToken):
             return False
 
         if TIDAL_API.verifyAccessToken(TOKEN.accessToken):
+            remaining = int(TOKEN.expiresAfter - time.time()) if TOKEN.expiresAfter else 0
             Printf.info(LANG.select.MSG_VALID_ACCESSTOKEN.format(
-                __displayTime__(int(TOKEN.expiresAfter - time.time()))))
+                __displayTime__(remaining)))
 
             TIDAL_API.key.countryCode = TOKEN.countryCode
-            TIDAL_API.key.userId = TOKEN.userid
-            TIDAL_API.key.accessToken = TOKEN.accessToken
+            TIDAL_API.key.userId      = TOKEN.userid
+
+            # tidalapi pode ter auto-renovado o token — salvar novo se diferente
+            new_token = TIDAL_API.session.access_token
+            if new_token and new_token != TOKEN.accessToken:
+                TOKEN.accessToken = new_token
+                if TIDAL_API.session.refresh_token:
+                    TOKEN.refreshToken = TIDAL_API.session.refresh_token
+                exp = getattr(TIDAL_API.session, 'expiry_time', None)
+                if exp:
+                    TOKEN.expiresAfter = exp.timestamp()
+                TOKEN.save()
+            else:
+                TIDAL_API.key.accessToken = TOKEN.accessToken
+
             return True
 
         Printf.info(LANG.select.MSG_INVALID_ACCESSTOKEN)
+
         if TIDAL_API.refreshAccessToken(TOKEN.refreshToken):
             Printf.success(LANG.select.MSG_VALID_ACCESSTOKEN.format(
                 __displayTime__(int(TIDAL_API.key.expiresIn))))
 
-            TOKEN.userid = TIDAL_API.key.userId
-            TOKEN.countryCode = TIDAL_API.key.countryCode
-            TOKEN.accessToken = TIDAL_API.key.accessToken
+            TOKEN.userid       = TIDAL_API.key.userId
+            TOKEN.countryCode  = TIDAL_API.key.countryCode
+            TOKEN.accessToken  = TIDAL_API.key.accessToken
+            TOKEN.refreshToken = TIDAL_API.key.refreshToken or TOKEN.refreshToken
             TOKEN.expiresAfter = time.time() + int(TIDAL_API.key.expiresIn)
             TOKEN.save()
             return True
-        else:
-            TokenSettings().save()
-            return False
-    except Exception as e:
+
+        TokenSettings().save()
+        return False
+
+    except Exception:
         return False
 
 
 def loginByAccessToken():
+    """Login manual via access token digitado pelo usuário (opção 3)."""
     try:
         print("-------------AccessToken---------------")
         token = Printf.enter("accessToken('0' go back):")
@@ -313,8 +328,8 @@ def loginByAccessToken():
     if refreshToken == '0':
         refreshToken = TOKEN.refreshToken
 
-    TOKEN.accessToken = token
+    TOKEN.accessToken  = TIDAL_API.key.accessToken
     TOKEN.refreshToken = refreshToken
-    TOKEN.expiresAfter = 0
-    TOKEN.countryCode = TIDAL_API.key.countryCode
+    TOKEN.expiresAfter = time.time() + int(TIDAL_API.key.expiresIn)
+    TOKEN.countryCode  = TIDAL_API.key.countryCode
     TOKEN.save()
