@@ -1,12 +1,16 @@
-requests==2.31.0
-colorama==0.4.4
-prettytable==3.1.1
-mutagen==1.45.1
-psutil==5.9.0
-pycryptodome==3.14.1
-aigpy==2022.7.8.1
-lyricsgenius==3.0.1
-pydub==0.25.1
-PyQt5==5.15.7
-qt-material==2.12
+# tidal-dl — dependências (atualizado 2026)
+# Substituição do apiKey.py revogado → tidalapi
 
+tidalapi>=0.7.2
+requests>=2.28.0
+prettytable>=3.1.1
+mutagen>=1.45.1
+psutil>=5.9.0
+pycryptodome>=3.14.1
+aigpy>=2022.7.8.1
+lyricsgenius>=3.0.1
+
+# iSH / Alpine Linux:
+#   pip install tidalapi --break-system-packages
+#   pip install pycryptodome --break-system-packages
+#   (PyQt5 e qt-material opcionais — só para a GUI)
