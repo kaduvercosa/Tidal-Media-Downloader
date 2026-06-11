@@ -2,11 +2,8 @@
 # -*- encoding: utf-8 -*-
 """
 @File    :  paths.py
-@Date    :  2022/06/10
-@Author  :  Yaronzz
-@Version :  1.0
-@Contact :  yaronhuang@foxmail.com
-@Desc    :
+@Date    :  2022/06/10 (atualizado 2026)
+@Author  :  Yaronzz  /  fix: __getExtension__ com fallback por codec
 """
 import os
 import aigpy
@@ -34,58 +31,83 @@ def __getDurationStr__(seconds):
 
 
 def __getExtension__(stream: StreamUrl):
-    if '.flac' in stream.url:
+    """
+    Determina a extensão do arquivo a partir da URL e/ou codec.
+
+    tidalapi pode retornar URLs CDN sem extensão visível (ex.: DASH/BTS),
+    por isso o fallback por codec é essencial.
+    """
+    url   = stream.url   or ''
+    codec = (stream.codec or '').lower()
+
+    # Tentativa 1 — extensão na URL (comportamento original)
+    if '.flac' in url:
         return '.flac'
-    if '.mp4' in stream.url:
-        if 'ac4' in stream.codec or 'mha1' in stream.codec:
+    if '.mp4' in url:
+        if 'ac4' in codec or 'mha1' in codec:
             return '.mp4'
-        elif 'flac' in stream.codec:
+        if 'flac' in codec:
             return '.flac'
         return '.m4a'
+
+    # Tentativa 2 — baseado no codec (necessário para streams tidalapi)
+    if 'flac' in codec:
+        return '.flac'
+    if 'aac' in codec or 'mp4a' in codec or 'he-aac' in codec:
+        return '.m4a'
+    if 'mp4' in codec:
+        if 'ac4' in codec or 'mha1' in codec:
+            return '.mp4'
+        return '.m4a'
+    if 'opus' in codec:
+        return '.ogg'
+    if 'vorbis' in codec:
+        return '.ogg'
+    if 'mqa' in codec:
+        return '.flac'   # MQA é FLAC com dados extras
+
+    # Padrão seguro
     return '.m4a'
 
 
 def getAlbumPath(album):
-    artistName = __fixPath__(TIDAL_API.getArtistsName(album.artists))
+    artistName      = __fixPath__(TIDAL_API.getArtistsName(album.artists))
     albumArtistName = __fixPath__(album.artist.name) if album.artist is not None else ""
 
-    # album folder pre: [ME]
     flag = TIDAL_API.getFlag(album, Type.Album, True, "")
     if SETTINGS.audioQuality != AudioQuality.Master and SETTINGS.audioQuality != AudioQuality.Max:
         flag = flag.replace("M", "")
     if flag != "":
         flag = "[" + flag + "] "
 
-    # album and addyear
     albumName = __fixPath__(album.title)
-    year = __getYear__(album.releaseDate)
+    year      = __getYear__(album.releaseDate)
 
-    # retpath
     retpath = SETTINGS.albumFolderFormat
     if retpath is None or len(retpath) <= 0:
         retpath = SETTINGS.getDefaultAlbumFolderFormat()
-    retpath = retpath.replace(R"{ArtistName}", artistName)
+    retpath = retpath.replace(R"{ArtistName}",      artistName)
     retpath = retpath.replace(R"{AlbumArtistName}", albumArtistName)
-    retpath = retpath.replace(R"{Flag}", flag)
-    retpath = retpath.replace(R"{AlbumID}", str(album.id))
-    retpath = retpath.replace(R"{AlbumYear}", year)
-    retpath = retpath.replace(R"{AlbumTitle}", albumName)
-    retpath = retpath.replace(R"{AudioQuality}", album.audioQuality)
+    retpath = retpath.replace(R"{Flag}",            flag)
+    retpath = retpath.replace(R"{AlbumID}",         str(album.id))
+    retpath = retpath.replace(R"{AlbumYear}",       year)
+    retpath = retpath.replace(R"{AlbumTitle}",      albumName)
+    retpath = retpath.replace(R"{AudioQuality}",    album.audioQuality)
     retpath = retpath.replace(R"{DurationSeconds}", str(album.duration))
-    retpath = retpath.replace(R"{Duration}", __getDurationStr__(album.duration))
-    retpath = retpath.replace(R"{NumberOfTracks}", str(album.numberOfTracks))
-    retpath = retpath.replace(R"{NumberOfVideos}", str(album.numberOfVideos))
+    retpath = retpath.replace(R"{Duration}",        __getDurationStr__(album.duration))
+    retpath = retpath.replace(R"{NumberOfTracks}",  str(album.numberOfTracks))
+    retpath = retpath.replace(R"{NumberOfVideos}",  str(album.numberOfVideos))
     retpath = retpath.replace(R"{NumberOfVolumes}", str(album.numberOfVolumes))
-    retpath = retpath.replace(R"{ReleaseDate}", str(album.releaseDate))
-    retpath = retpath.replace(R"{RecordType}", album.type)
-    retpath = retpath.replace(R"{None}", "")
+    retpath = retpath.replace(R"{ReleaseDate}",     str(album.releaseDate))
+    retpath = retpath.replace(R"{RecordType}",      album.type)
+    retpath = retpath.replace(R"{None}",            "")
     retpath = retpath.strip()
     return f"{SETTINGS.downloadPath}/{retpath}"
+
 
 def getPlaylistPath(playlist):
     playlistName = __fixPath__(playlist.title)
 
-    # retpath
     retpath = SETTINGS.playlistFolderFormat
     if retpath is None or len(retpath) <= 0:
         retpath = SETTINGS.getDefaultPlaylistFolderFormat()
@@ -95,7 +117,7 @@ def getPlaylistPath(playlist):
 
 
 def getTrackPath(track, stream, album=None, playlist=None):
-    base = './'
+    base   = './'
     number = str(track.trackNumber).rjust(2, '0')
     if album is not None:
         base = getAlbumPath(album)
@@ -103,42 +125,34 @@ def getTrackPath(track, stream, album=None, playlist=None):
             base += f'/CD{str(track.volumeNumber)}'
 
     if playlist is not None and SETTINGS.usePlaylistFolder:
-        base = getPlaylistPath(playlist)
+        base   = getPlaylistPath(playlist)
         number = str(track.trackNumberOnPlaylist).rjust(2, '0')
 
-    # artist
-    artists = __fixPath__(TIDAL_API.getArtistsName(track.artists))
-    artist = __fixPath__(track.artist.name) if track.artist is not None else ""
-
-    # title
-    title = __fixPath__(track.title)
+    artists   = __fixPath__(TIDAL_API.getArtistsName(track.artists))
+    artist    = __fixPath__(track.artist.name) if track.artist is not None else ""
+    title     = __fixPath__(track.title)
     if not aigpy.string.isNull(track.version):
         title += f' ({__fixPath__(track.version)})'
 
-    # explicit
-    explicit = "(Explicit)" if track.explicit else ''
-
-    # album and addyear
+    explicit  = "(Explicit)" if track.explicit else ''
     albumName = __fixPath__(album.title) if album is not None else ''
-    year = __getYear__(album.releaseDate) if album is not None else ''
-
-    # extension
+    year      = __getYear__(album.releaseDate) if album is not None else ''
     extension = __getExtension__(stream)
 
     retpath = SETTINGS.trackFileFormat
     if retpath is None or len(retpath) <= 0:
         retpath = SETTINGS.getDefaultTrackFileFormat()
-    retpath = retpath.replace(R"{TrackNumber}", number)
-    retpath = retpath.replace(R"{ArtistName}", artist)
-    retpath = retpath.replace(R"{ArtistsName}", artists)
-    retpath = retpath.replace(R"{TrackTitle}", title)
+    retpath = retpath.replace(R"{TrackNumber}",  number)
+    retpath = retpath.replace(R"{ArtistName}",   artist)
+    retpath = retpath.replace(R"{ArtistsName}",  artists)
+    retpath = retpath.replace(R"{TrackTitle}",   title)
     retpath = retpath.replace(R"{ExplicitFlag}", explicit)
-    retpath = retpath.replace(R"{AlbumYear}", year)
-    retpath = retpath.replace(R"{AlbumTitle}", albumName)
+    retpath = retpath.replace(R"{AlbumYear}",    year)
+    retpath = retpath.replace(R"{AlbumTitle}",   albumName)
     retpath = retpath.replace(R"{AudioQuality}", track.audioQuality)
     retpath = retpath.replace(R"{DurationSeconds}", str(track.duration))
-    retpath = retpath.replace(R"{Duration}", __getDurationStr__(track.duration))
-    retpath = retpath.replace(R"{TrackID}", str(track.id))
+    retpath = retpath.replace(R"{Duration}",     __getDurationStr__(track.duration))
+    retpath = retpath.replace(R"{TrackID}",      str(track.id))
     retpath = retpath.strip()
     return f"{base}/{retpath}{extension}"
 
@@ -150,31 +164,24 @@ def getVideoPath(video, album=None, playlist=None):
     elif playlist is not None:
         base = getPlaylistPath(playlist)
 
-    # get number
-    number = str(video.trackNumber).rjust(2, '0')
-
-    # get artist
+    number  = str(video.trackNumber).rjust(2, '0')
     artists = __fixPath__(TIDAL_API.getArtistsName(video.artists))
-    artist = __fixPath__(video.artist.name) if video.artist is not None else ""
-
-    # explicit
+    artist  = __fixPath__(video.artist.name) if video.artist is not None else ""
     explicit = "(Explicit)" if video.explicit else ''
-
-    # title and year and extension
-    title = __fixPath__(video.title)
-    year = __getYear__(video.releaseDate)
+    title    = __fixPath__(video.title)
+    year     = __getYear__(video.releaseDate)
     extension = ".mp4"
 
     retpath = SETTINGS.videoFileFormat
     if retpath is None or len(retpath) <= 0:
         retpath = SETTINGS.getDefaultVideoFileFormat()
     retpath = retpath.replace(R"{VideoNumber}", number)
-    retpath = retpath.replace(R"{ArtistName}", artist)
+    retpath = retpath.replace(R"{ArtistName}",  artist)
     retpath = retpath.replace(R"{ArtistsName}", artists)
-    retpath = retpath.replace(R"{VideoTitle}", title)
+    retpath = retpath.replace(R"{VideoTitle}",  title)
     retpath = retpath.replace(R"{ExplicitFlag}", explicit)
-    retpath = retpath.replace(R"{VideoYear}", year)
-    retpath = retpath.replace(R"{VideoID}", str(video.id))
+    retpath = retpath.replace(R"{VideoYear}",   year)
+    retpath = retpath.replace(R"{VideoID}",     str(video.id))
     retpath = retpath.strip()
     return f"{base}/{retpath}{extension}"
 
@@ -189,11 +196,14 @@ def __getHomePath__():
     else:
         return os.path.abspath("./")
 
+
 def getLogPath():
     return __getHomePath__() + '/.tidal-dl.log'
 
+
 def getTokenPath():
     return __getHomePath__() + '/.tidal-dl.token.json'
+
 
 def getProfilePath():
     return __getHomePath__() + '/.tidal-dl.json'
